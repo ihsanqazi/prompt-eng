@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next-Token Prediction — Interactive Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0F1E3C;
+    --navy2: #1A2F52;
+    --blue: #1A6FAA;
+    --orange: #E8622A;
+    --green: #2D7D46;
+    --cream: #F4F1EC;
+    --text: #1A2B4A;
+    --muted: #6B7A99;
+    --border: #D8DEE9;
+    --card: #FFFFFF;
+    --bg: #F0F2F7;
+  }
+
+  body {
+    font-family: 'Sora', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 20px 48px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+    max-width: 720px;
+  }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: clamp(20px, 4vw, 30px);
+    font-weight: 700;
+    color: var(--navy);
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+
+  .subtitle {
+    font-size: 13.5px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.6;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 24px rgba(15,30,60,0.08);
+    padding: 26px 26px 22px;
+    max-width: 780px;
+    width: 100%;
+    margin-bottom: 18px;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 11px;
+  }
+
+  .prompt-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .tab {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+  }
+  .tab:hover { border-color: var(--blue); color: var(--blue); }
+  .tab.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+
+  .token-stream {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 56px;
+    margin-bottom: 6px;
+  }
+
+  .token {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--navy);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    user-select: none;
+  }
+
+  .token:hover { border-color: var(--blue); color: var(--blue); }
+  .token.context { background: var(--navy); border-color: var(--navy); color: #fff; transform: scale(1.04); }
+  .token.faded { opacity: 0.3; }
+  .token.cursor-token { border-style: dashed; color: var(--muted); min-width: 72px; text-align: center; cursor: default; }
+  .token.cursor-token:hover { border-color: var(--border); color: var(--muted); }
+
+  .arrow { font-size: 20px; color: var(--navy); font-weight: 700; margin: 0 2px; flex-shrink: 0; }
+
+  .prompt-hint { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 18px; }
+
+  .prediction-panel { border-top: 1px solid var(--border); padding-top: 18px; }
+
+  .pred-title {
+    font-size: 10px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1.5px;
+    font-family: 'JetBrains Mono', monospace; margin-bottom: 12px;
+  }
+
+  .pred-context-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; color: var(--navy);
+    background: var(--bg); border-radius: 8px;
+    padding: 9px 13px; margin-bottom: 14px;
+    border: 1px solid var(--border); font-weight: 600;
+  }
+  .pred-context-display span { color: var(--blue); }
+
+  .candidates { display: flex; flex-direction: column; gap: 9px; }
+
+  .candidate {
+    display: flex; align-items: center; gap: 11px;
+    cursor: pointer; transition: transform 0.15s;
+  }
+  .candidate:hover { transform: translateX(3px); }
+
+  .cand-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;
+    width: 116px; flex-shrink: 0; color: var(--text);
+    padding: 5px 10px; border-radius: 6px;
+    border: 2px solid var(--border); text-align: center; transition: all 0.2s;
+  }
+
+  .candidate.top .cand-label { background: var(--green); border-color: var(--green); color: #fff; }
+  .candidate.low .cand-label { border-color: var(--orange); color: var(--orange); }
+
+  .cand-bar-wrap {
+    flex: 1; height: 26px; background: var(--bg);
+    border-radius: 6px; overflow: hidden; border: 1px solid var(--border);
+  }
+
+  .cand-bar {
+    height: 100%; border-radius: 6px;
+    transition: width 0.65s cubic-bezier(0.34,1.2,0.64,1);
+    display: flex; align-items: center; justify-content: flex-end; padding-right: 9px;
+  }
+
+  .cand-bar-pct {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .cand-pct-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    font-weight: 600; width: 50px; text-align: right; flex-shrink: 0;
+  }
+
+  .chosen-reveal {
+    display: flex; align-items: center; gap: 13px;
+    margin-top: 18px; padding: 13px 16px;
+    background: linear-gradient(135deg, #f0faf4, #e6f4e9);
+    border-radius: 10px; border: 1.5px solid #2D7D46;
+    opacity: 0; transition: opacity 0.4s; pointer-events: none;
+  }
+  .chosen-reveal.show { opacity: 1; pointer-events: auto; }
+
+  .chosen-word {
+    font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700;
+    color: var(--green); padding: 5px 14px; background: #fff;
+    border-radius: 8px; border: 2px solid var(--green); flex-shrink: 0;
+  }
+
+  .chosen-text { font-size: 12.5px; color: #2D7D46; line-height: 1.5; }
+
+  .temp-row {
+    display: flex; align-items: center; gap: 13px;
+    margin-top: 18px; padding: 13px 16px;
+    background: var(--bg); border-radius: 10px; border: 1px solid var(--border);
+  }
+
+  .temp-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+
+  input[type=range] { flex: 1; accent-color: var(--navy); cursor: pointer; }
+
+  .temp-val {
+    font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    font-weight: 700; color: var(--navy); width: 34px; text-align: center; flex-shrink: 0;
+  }
+
+  .temp-desc { font-size: 11px; color: var(--orange); font-weight: 600; width: 82px; text-align: right; flex-shrink: 0; }
+
+  .controls { display: flex; gap: 9px; margin-top: 18px; flex-wrap: wrap; }
+
+  .btn {
+    font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 600;
+    padding: 9px 20px; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--navy); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--navy2); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-secondary { background: transparent; color: var(--navy); border: 1.5px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--navy); }
+  .btn-orange { background: var(--orange); color: #fff; }
+  .btn-orange:hover:not(:disabled) { background: #c94e1e; transform: translateY(-1px); }
+  .btn-orange:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .info-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    max-width: 780px; width: 100%;
+  }
+
+  .info-card {
+    background: var(--card); border-radius: 12px;
+    border: 1px solid var(--border); padding: 16px 18px;
+    border-left: 4px solid var(--blue);
+  }
+  .info-card:last-child { border-left-color: var(--orange); }
+  .info-card h3 { font-size: 13.5px; font-weight: 700; color: var(--navy); margin-bottom: 5px; }
+  .info-card p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  @keyframes pop {
+    0% { transform: scale(0.75); opacity: 0; }
+    60% { transform: scale(1.12); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .pop { animation: pop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+  @media (max-width: 540px) {
+    .info-row { grid-template-columns: 1fr; }
+    .token { font-size: 12px; padding: 8px 11px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Interactive Demo</div>
+  <h1>The Core Mechanism: Next-Token Prediction</h1>
+  <p class="subtitle">AI doesn't "know" answers — it predicts the most probable next word, one token at a time.<br>Click any token below to see what the model would predict comes next.</p>
+</header>
+
+<div class="card">
+  <div class="section-label">Choose a prompt</div>
+  <div class="prompt-tabs" id="promptTabs"></div>
+
+  <div class="section-label">Token stream — click any token to set context</div>
+  <div class="token-stream" id="tokenStream"></div>
+  <div class="prompt-hint" id="promptHint">← click a token to begin</div>
+
+  <div class="prediction-panel">
+    <div class="pred-title">Next-token probabilities</div>
+    <div class="pred-context-display" id="contextDisplay">Select a token above to see predictions</div>
+    <div class="candidates" id="candidates"></div>
+    <div class="chosen-reveal" id="chosenReveal">
+      <div class="chosen-word" id="chosenWord"></div>
+      <div class="chosen-text" id="chosenText"></div>
+    </div>
+  </div>
+
+  <div class="temp-row">
+    <span class="temp-label">Temperature</span>
+    <input type="range" id="tempSlider" min="0" max="2" step="0.1" value="1">
+    <span class="temp-val" id="tempVal">1.0</span>
+    <span class="temp-desc" id="tempDesc">Balanced</span>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-primary" id="stepBtn" disabled>▶ Pick Top Token</button>
+    <button class="btn btn-orange" id="surpriseBtn" disabled>🎲 Surprise Me</button>
+    <button class="btn btn-secondary" id="resetBtn">↺ Reset</button>
+  </div>
+</div>
+
+<div class="info-row">
+  <div class="info-card">
+    <h3>🔢 One token at a time</h3>
+    <p>Each predicted token becomes context for the next prediction. This chain is called <strong>autoregressive generation</strong> — the model never sees the whole answer at once.</p>
+  </div>
+  <div class="info-card">
+    <h3>📊 Probability, not knowledge</h3>
+    <p>The model calculates which token is statistically <em>most likely</em> — not what is objectively true. This is why confident-sounding AI answers can still be wrong.</p>
+  </div>
+</div>
+
+<script>
+const PROMPTS = [
+  {
+    id: "capital", label: "Geography",
+    tokens: ["The", "capital", "of", "Pakistan", "is"],
+    predictions: {
+      0: { context: "The", candidates: [{ w: "capital", p: 0.31, color: "#2D7D46" }, { w: "city", p: 0.18, color: "#1A6FAA" }, { w: "first", p: 0.12, color: "#6B7A99" }, { w: "United", p: 0.09, color: "#9B59B6" }] },
+      1: { context: "The capital", candidates: [{ w: "of", p: 0.72, color: "#2D7D46" }, { w: "city", p: 0.11, color: "#1A6FAA" }, { w: "is", p: 0.09, color: "#6B7A99" }, { w: "gains", p: 0.02, color: "#E8622A" }] },
+      2: { context: "The capital of", candidates: [{ w: "France", p: 0.15, color: "#1A6FAA" }, { w: "the", p: 0.14, color: "#1A6FAA" }, { w: "Pakistan", p: 0.12, color: "#2D7D46" }, { w: "India", p: 0.11, color: "#6B7A99" }] },
+      3: { context: "The capital of Pakistan", candidates: [{ w: "is", p: 0.88, color: "#2D7D46" }, { w: "was", p: 0.06, color: "#1A6FAA" }, { w: "has", p: 0.03, color: "#6B7A99" }, { w: "remains", p: 0.02, color: "#E8622A" }] },
+      4: { context: "The capital of Pakistan is", candidates: [{ w: "Islamabad", p: 0.958, color: "#2D7D46" }, { w: "Karachi", p: 0.03, color: "#E8622A" }, { w: "Lahore", p: 0.008, color: "#6B7A99" }, { w: "Rawalpindi", p: 0.003, color: "#9B59B6" }] },
+    }
+  },
+  {
+    id: "sky", label: "Common sense",
+    tokens: ["The", "sky", "is"],
+    predictions: {
+      0: { context: "The", candidates: [{ w: "sky", p: 0.08, color: "#2D7D46" }, { w: "sun", p: 0.06, color: "#1A6FAA" }, { w: "cat", p: 0.04, color: "#6B7A99" }, { w: "best", p: 0.03, color: "#9B59B6" }] },
+      1: { context: "The sky", candidates: [{ w: "is", p: 0.68, color: "#2D7D46" }, { w: "was", p: 0.12, color: "#1A6FAA" }, { w: "looks", p: 0.09, color: "#6B7A99" }, { w: "turned", p: 0.04, color: "#E8622A" }] },
+      2: { context: "The sky is", candidates: [{ w: "blue", p: 0.71, color: "#2D7D46" }, { w: "clear", p: 0.12, color: "#1A6FAA" }, { w: "falling", p: 0.08, color: "#6B7A99" }, { w: "beautiful", p: 0.05, color: "#E8622A" }] },
+    }
+  },
+  {
+    id: "email", label: "Business email",
+    tokens: ["Please", "find", "attached", "the"],
+    predictions: {
+      0: { context: "Please", candidates: [{ w: "find", p: 0.22, color: "#2D7D46" }, { w: "let", p: 0.18, color: "#1A6FAA" }, { w: "note", p: 0.14, color: "#6B7A99" }, { w: "review", p: 0.10, color: "#E8622A" }] },
+      1: { context: "Please find", candidates: [{ w: "attached", p: 0.54, color: "#2D7D46" }, { w: "the", p: 0.19, color: "#1A6FAA" }, { w: "enclosed", p: 0.11, color: "#6B7A99" }, { w: "below", p: 0.07, color: "#E8622A" }] },
+      2: { context: "Please find attached", candidates: [{ w: "the", p: 0.61, color: "#2D7D46" }, { w: "a", p: 0.22, color: "#1A6FAA" }, { w: "my", p: 0.09, color: "#6B7A99" }, { w: "our", p: 0.06, color: "#9B59B6" }] },
+      3: { context: "Please find attached the", candidates: [{ w: "report", p: 0.29, color: "#2D7D46" }, { w: "document", p: 0.22, color: "#1A6FAA" }, { w: "proposal", p: 0.16, color: "#6B7A99" }, { w: "invoice", p: 0.12, color: "#E8622A" }] },
+    }
+  },
+  {
+    id: "code", label: "Coding",
+    tokens: ["def", "calculate", "_area"],
+    predictions: {
+      0: { context: "def", candidates: [{ w: "calculate", p: 0.09, color: "#2D7D46" }, { w: "get", p: 0.11, color: "#1A6FAA" }, { w: "process", p: 0.07, color: "#6B7A99" }, { w: "is_valid", p: 0.04, color: "#E8622A" }] },
+      1: { context: "def calculate", candidates: [{ w: "_area", p: 0.21, color: "#2D7D46" }, { w: "_total", p: 0.18, color: "#1A6FAA" }, { w: "_sum", p: 0.15, color: "#6B7A99" }, { w: "_tax", p: 0.11, color: "#E8622A" }] },
+      2: { context: "def calculate_area", candidates: [{ w: "(radius)", p: 0.38, color: "#2D7D46" }, { w: "(width,", p: 0.28, color: "#1A6FAA" }, { w: "(shape):", p: 0.18, color: "#6B7A99" }, { w: "(x, y):", p: 0.09, color: "#E8622A" }] },
+    }
+  }
+];
+
+let currentPrompt = PROMPTS[0];
+let selectedTokenIdx = null;
+let temperature = 1.0;
+let pickedThisRound = false;
+
+const promptTabsEl = document.getElementById("promptTabs");
+const tokenStreamEl = document.getElementById("tokenStream");
+const promptHintEl = document.getElementById("promptHint");
+const contextDisplayEl = document.getElementById("contextDisplay");
+const candidatesEl = document.getElementById("candidates");
+const chosenRevealEl = document.getElementById("chosenReveal");
+const chosenWordEl = document.getElementById("chosenWord");
+const chosenTextEl = document.getElementById("chosenText");
+const stepBtn = document.getElementById("stepBtn");
+const surpriseBtn = document.getElementById("surpriseBtn");
+const resetBtn = document.getElementById("resetBtn");
+const tempSlider = document.getElementById("tempSlider");
+const tempVal = document.getElementById("tempVal");
+const tempDesc = document.getElementById("tempDesc");
+
+function buildTabs() {
+  promptTabsEl.innerHTML = "";
+  PROMPTS.forEach(p => {
+    const btn = document.createElement("button");
+    btn.className = "tab" + (p.id === currentPrompt.id ? " active" : "");
+    btn.textContent = p.label;
+    btn.addEventListener("click", () => {
+      currentPrompt = p;
+      selectedTokenIdx = null;
+      buildTabs();
+      buildTokenStream();
+      clearPredictions();
+    });
+    promptTabsEl.appendChild(btn);
+  });
+}
+
+function buildTokenStream() {
+  tokenStreamEl.innerHTML = "";
+  currentPrompt.tokens.forEach((tok, i) => {
+    const el = document.createElement("div");
+    el.className = "token";
+    el.textContent = tok;
+    el.addEventListener("click", () => selectToken(i));
+    tokenStreamEl.appendChild(el);
+  });
+
+  const arr = document.createElement("div");
+  arr.className = "arrow";
+  arr.textContent = "→";
+  tokenStreamEl.appendChild(arr);
+
+  const cursor = document.createElement("div");
+  cursor.className = "token cursor-token";
+  cursor.id = "cursorToken";
+  cursor.textContent = "?";
+  tokenStreamEl.appendChild(cursor);
+
+  promptHintEl.textContent = "← click a token to begin";
+}
+
+function applyTemperature(candidates, temp) {
+  if (temp === 0) {
+    const max = Math.max(...candidates.map(c => c.p));
+    const total = candidates.reduce((s, c) => s + (c.p === max ? 1 : 0), 0);
+    return candidates.map(c => ({ ...c, adjP: c.p === max ? 1 / total : 0 }));
+  }
+  const logits = candidates.map(c => Math.log(Math.max(c.p, 1e-9)) / temp);
+  const maxLogit = Math.max(...logits);
+  const exps = logits.map(l => Math.exp(l - maxLogit));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return candidates.map((c, i) => ({ ...c, adjP: exps[i] / sum }));
+}
+
+function selectToken(idx) {
+  selectedTokenIdx = idx;
+  pickedThisRound = false;
+  chosenRevealEl.classList.remove("show");
+
+  // Reset cursor token
+  const cursor = document.getElementById("cursorToken");
+  if (cursor) {
+    cursor.textContent = "?";
+    cursor.style.background = "";
+    cursor.style.borderColor = "";
+    cursor.style.color = "";
+    cursor.style.borderStyle = "dashed";
+    cursor.classList.remove("pop");
+  }
+
+  const tokens = tokenStreamEl.querySelectorAll(".token:not(.cursor-token)");
+  tokens.forEach((t, i) => {
+    t.className = "token";
+    if (i <= idx) t.classList.add("context");
+    else t.classList.add("faded");
+  });
+
+  const pred = currentPrompt.predictions[idx];
+  if (!pred) return;
+
+  contextDisplayEl.innerHTML = `Context: <span>"${pred.context}"</span>`;
+  renderCandidates(pred.candidates);
+  stepBtn.disabled = false;
+  surpriseBtn.disabled = false;
+}
+
+function renderCandidates(rawCandidates) {
+  const candidates = applyTemperature(rawCandidates, temperature);
+  candidatesEl.innerHTML = "";
+
+  candidates.forEach((c, i) => {
+    const pct = Math.round(c.adjP * 1000) / 10;
+    const div = document.createElement("div");
+    div.className = "candidate" + (i === 0 ? " top" : (pct < 5 ? " low" : ""));
+
+    div.innerHTML = `
+      <div class="cand-label">${c.w}</div>
+      <div class="cand-bar-wrap">
+        <div class="cand-bar" style="width:0%;background:${c.color}">
+          <span class="cand-bar-pct">${pct >= 10 ? pct + "%" : ""}</span>
+        </div>
+      </div>
+      <div class="cand-pct-label" style="color:${c.color}">${pct}%</div>
+    `;
+    div.addEventListener("click", () => {
+      if (!pickedThisRound) pickToken(c.w, pct, c.color);
+    });
+    candidatesEl.appendChild(div);
+
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      div.querySelector(".cand-bar").style.width = Math.min(pct, 100) + "%";
+    }));
+  });
+}
+
+function pickToken(word, pct, color) {
+  if (pickedThisRound) return;
+  pickedThisRound = true;
+
+  const cursor = document.getElementById("cursorToken");
+  if (cursor) {
+    cursor.textContent = word;
+    cursor.style.background = color;
+    cursor.style.borderColor = color;
+    cursor.style.color = "#fff";
+    cursor.style.borderStyle = "solid";
+    cursor.classList.remove("pop");
+    void cursor.offsetWidth;
+    cursor.classList.add("pop");
+  }
+
+  chosenWordEl.textContent = word;
+  chosenTextEl.textContent = `"${word}" chosen with ${pct}% probability. This token now becomes part of the context for the next prediction — the model never plans ahead, it just keeps predicting one token at a time.`;
+  chosenRevealEl.classList.add("show");
+  stepBtn.disabled = true;
+  surpriseBtn.disabled = true;
+}
+
+stepBtn.addEventListener("click", () => {
+  const pred = currentPrompt.predictions[selectedTokenIdx];
+  if (!pred) return;
+  const candidates = applyTemperature(pred.candidates, temperature);
+  const top = candidates.reduce((a, b) => a.adjP > b.adjP ? a : b);
+  pickToken(top.w, Math.round(top.adjP * 1000) / 10, top.color);
+});
+
+surpriseBtn.addEventListener("click", () => {
+  const pred = currentPrompt.predictions[selectedTokenIdx];
+  if (!pred) return;
+  const candidates = applyTemperature(pred.candidates, temperature);
+  const r = Math.random();
+  let cumulative = 0;
+  let chosen = candidates[candidates.length - 1];
+  for (const c of candidates) {
+    cumulative += c.adjP;
+    if (r <= cumulative) { chosen = c; break; }
+  }
+  pickToken(chosen.w, Math.round(chosen.adjP * 1000) / 10, chosen.color);
+});
+
+resetBtn.addEventListener("click", () => {
+  selectedTokenIdx = null;
+  pickedThisRound = false;
+  buildTokenStream();
+  clearPredictions();
+});
+
+function clearPredictions() {
+  contextDisplayEl.textContent = "Select a token above to see predictions";
+  candidatesEl.innerHTML = "";
+  chosenRevealEl.classList.remove("show");
+  stepBtn.disabled = true;
+  surpriseBtn.disabled = true;
+  const tokens = tokenStreamEl.querySelectorAll(".token:not(.cursor-token)");
+  tokens.forEach(t => { t.className = "token"; });
+}
+
+tempSlider.addEventListener("input", () => {
+  temperature = parseFloat(tempSlider.value);
+  tempVal.textContent = temperature.toFixed(1);
+  if (temperature < 0.5) tempDesc.textContent = "Predictable";
+  else if (temperature < 1.2) tempDesc.textContent = "Balanced";
+  else tempDesc.textContent = "Creative";
+  if (selectedTokenIdx !== null && !pickedThisRound) {
+    const pred = currentPrompt.predictions[selectedTokenIdx];
+    if (pred) renderCandidates(pred.candidates);
+  }
+});
+
+buildTabs();
+buildTokenStream();
+clearPredictions();
+</script>
+</body>
+</html>

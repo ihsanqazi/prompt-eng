@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Battle — Role Prompting Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Syne+Mono&family=Mulish:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e1a;
+  --surface: #111827;
+  --surface2: #1a2235;
+  --border: rgba(255,255,255,0.07);
+  --orange: #ff6b2b;
+  --cyan: #00e5c8;
+  --yellow: #ffd93d;
+  --green: #22c55e;
+  --red: #ef4444;
+  --white: #f8fafc;
+  --muted: rgba(248,250,252,0.45);
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'Syne Mono', monospace;
+  --font-body: 'Mulish', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--white);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Animated grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,229,200,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,200,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ====== HEADER ====== */
+.header {
+  position: relative;
+  z-index: 10;
+  padding: 28px 40px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo-icon {
+  width: 36px; height: 36px;
+  background: var(--orange);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.logo-text {
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+.logo-text span { color: var(--orange); }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.round-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--cyan);
+  border: 1px solid rgba(0,229,200,0.3);
+  padding: 4px 12px;
+  border-radius: 20px;
+  letter-spacing: 1px;
+}
+.total-xp {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--yellow);
+}
+.total-xp span { opacity: 0.5; font-weight: 400; }
+
+/* ====== SCENARIO SELECTOR ====== */
+.scenario-bar {
+  position: relative;
+  z-index: 10;
+  padding: 20px 40px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.scenario-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.scenario-pill {
+  padding: 8px 18px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-head);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.scenario-pill:hover { border-color: rgba(255,255,255,0.2); color: var(--white); }
+.scenario-pill.active {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: white;
+  box-shadow: 0 0 16px rgba(255,107,43,0.4);
+}
+
+/* ====== ARENA ====== */
+.arena {
+  position: relative;
+  z-index: 10;
+  padding: 0 40px 40px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  align-items: start;
+}
+
+/* VS divider */
+.vs-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px 0;
+  gap: 16px;
+}
+.vs-badge {
+  font-family: var(--font-head);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--yellow);
+  text-shadow: 0 0 20px rgba(255,217,61,0.5);
+  letter-spacing: 2px;
+}
+.run-all-btn {
+  background: var(--yellow);
+  color: #0a0e1a;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+  text-align: center;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.run-all-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(255,217,61,0.5);
+}
+.run-all-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.vs-line {
+  width: 1px;
+  height: 60px;
+  background: linear-gradient(to bottom, transparent, var(--border), transparent);
+}
+
+/* ====== FIGHTER CARD ====== */
+.fighter-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+.fighter-card.orange { border-top: 3px solid var(--orange); }
+.fighter-card.cyan { border-top: 3px solid var(--cyan); }
+.fighter-card.winner {
+  box-shadow: 0 0 30px rgba(0,229,200,0.15);
+  border-color: rgba(0,229,200,0.3);
+}
+
+.card-top {
+  padding: 16px 20px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.fighter-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.fighter-tag.orange {
+  background: rgba(255,107,43,0.15);
+  color: var(--orange);
+  border: 1px solid rgba(255,107,43,0.3);
+}
+.fighter-tag.cyan {
+  background: rgba(0,229,200,0.1);
+  color: var(--cyan);
+  border: 1px solid rgba(0,229,200,0.25);
+}
+.hp-bar-wrap {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.hp-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 1.2s cubic-bezier(0.22,1,0.36,1);
+  width: 0%;
+}
+.hp-bar.orange { background: linear-gradient(90deg, var(--orange), #ff9a5c); }
+.hp-bar.cyan { background: linear-gradient(90deg, var(--cyan), #7fffd4); }
+.hp-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Prompt box */
+.prompt-section { padding: 16px 20px; }
+.prompt-chip {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.prompt-bubble {
+  background: rgba(0,0,0,0.3);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.65;
+  color: rgba(248,250,252,0.85);
+  border-left: 3px solid;
+  min-height: 70px;
+}
+.prompt-bubble.orange { border-left-color: var(--orange); }
+.prompt-bubble.cyan { border-left-color: var(--cyan); }
+
+/* Run button */
+.fight-btn {
+  margin: 0 20px 16px;
+  width: calc(100% - 40px);
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+.fight-btn.orange {
+  background: var(--orange);
+  color: white;
+}
+.fight-btn.orange:hover { filter: brightness(1.1); box-shadow: 0 4px 20px rgba(255,107,43,0.4); }
+.fight-btn.cyan {
+  background: var(--cyan);
+  color: #0a0e1a;
+}
+.fight-btn.cyan:hover { filter: brightness(1.1); box-shadow: 0 4px 20px rgba(0,229,200,0.3); }
+.fight-btn:disabled { opacity: 0.35; cursor: not-allowed; filter: none; box-shadow: none; }
+
+/* Response */
+.response-box {
+  margin: 0 20px 16px;
+  padding: 14px 16px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: rgba(248,250,252,0.75);
+  min-height: 120px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.response-box.show { display: block; }
+.blink-cursor {
+  display: inline-block;
+  width: 2px; height: 13px;
+  background: var(--white);
+  animation: blink 0.6s infinite;
+  vertical-align: middle;
+  margin-left: 1px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ====== SCORE PANEL ====== */
+.score-panel {
+  margin: 0 20px 20px;
+  display: none;
+}
+.score-panel.show { display: block; }
+.score-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.metric-item {
+  margin-bottom: 10px;
+}
+.metric-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.metric-name-txt {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(248,250,252,0.65);
+}
+.metric-pts {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+.metric-track {
+  height: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.metric-fill {
+  height: 100%;
+  border-radius: 4px;
+  width: 0%;
+  transition: width 1s cubic-bezier(0.22,1,0.36,1);
+  position: relative;
+}
+.metric-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0;
+  width: 4px; height: 100%;
+  background: rgba(255,255,255,0.5);
+  border-radius: 2px;
+}
+
+/* XP pop */
+.xp-total-box {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid;
+}
+.xp-total-box.orange {
+  background: rgba(255,107,43,0.08);
+  border-color: rgba(255,107,43,0.2);
+}
+.xp-total-box.cyan {
+  background: rgba(0,229,200,0.06);
+  border-color: rgba(0,229,200,0.18);
+}
+.xp-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.xp-score {
+  font-family: var(--font-head);
+  font-size: 26px;
+  font-weight: 800;
+}
+.xp-score.orange { color: var(--orange); }
+.xp-score.cyan { color: var(--cyan); }
+.xp-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.badge-s { background: rgba(34,197,94,0.2); color: var(--green); }
+.badge-a { background: rgba(0,229,200,0.15); color: var(--cyan); }
+.badge-b { background: rgba(255,217,61,0.15); color: var(--yellow); }
+.badge-c { background: rgba(255,107,43,0.15); color: var(--orange); }
+.badge-d { background: rgba(239,68,68,0.15); color: var(--red); }
+
+/* ====== RESULTS BANNER ====== */
+.results-banner {
+  position: relative;
+  z-index: 10;
+  margin: 0 40px 40px;
+  background: var(--surface2);
+  border: 1px solid rgba(0,229,200,0.2);
+  border-radius: 16px;
+  padding: 24px 28px;
+  display: none;
+  animation: slideUp 0.4s cubic-bezier(0.22,1,0.36,1);
+}
+.results-banner.show { display: block; }
+@keyframes slideUp {
+  from { opacity:0; transform: translateY(20px); }
+  to { opacity:1; transform: translateY(0); }
+}
+.results-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.results-trophy { font-size: 28px; }
+.results-headline {
+  font-family: var(--font-head);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--cyan);
+}
+.results-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.boost-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+.boost-card {
+  background: rgba(0,0,0,0.3);
+  border-radius: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+}
+.boost-metric {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.boost-val {
+  font-family: var(--font-head);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--green);
+}
+.boost-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.insight-box {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: rgba(0,229,200,0.05);
+  border-radius: 8px;
+  border-left: 3px solid var(--cyan);
+  font-size: 13px;
+  line-height: 1.65;
+  color: rgba(248,250,252,0.8);
+}
+.insight-box strong { color: var(--white); }
+
+/* ====== LOADING DOTS ====== */
+.dots { display: inline-flex; gap: 5px; align-items: center; }
+.dots i {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+  animation: dotpop 1.2s infinite;
+  font-style: normal;
+}
+.dots i:nth-child(2) { animation-delay: 0.2s; }
+.dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotpop {
+  0%,60%,100% { transform: scale(1); opacity:0.4; }
+  30% { transform: scale(1.4); opacity:1; }
+}
+
+/* score pop-up animation */
+@keyframes scorePop {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.score-pop { animation: scorePop 0.5s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+@media (max-width: 900px) {
+  .arena { grid-template-columns: 1fr; }
+  .vs-col { flex-direction: row; padding: 20px 0; }
+  .vs-line { display: none; }
+  .boost-grid { grid-template-columns: 1fr; }
+  .header, .scenario-bar, .arena, .results-banner { padding-left: 16px; padding-right: 16px; }
+  .results-banner { margin-left: 16px; margin-right: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">⚔️</div>
+    <div class="logo-text">PROMPT<span>BATTLE</span></div>
+  </div>
+  <div class="header-right">
+    <div class="round-badge" id="roundBadge">ROUND 1 / 3</div>
+    <div class="total-xp"><span>TOTAL XP </span><span id="totalXP">0</span></div>
+  </div>
+</div>
+
+<!-- SCENARIO SELECTOR -->
+<div class="scenario-bar">
+  <div class="scenario-label">Pick a scenario →</div>
+  <button class="scenario-pill active" onclick="selectScenario(0)">🔬 Science Explainer</button>
+  <button class="scenario-pill" onclick="selectScenario(1)">📊 Business Problem</button>
+  <button class="scenario-pill" onclick="selectScenario(2)">🎨 Creative Brief</button>
+</div>
+
+<!-- ARENA -->
+<div class="arena">
+
+  <!-- LEFT: WITHOUT ROLE -->
+  <div class="fighter-card orange" id="cardLeft">
+    <div class="card-top">
+      <div class="fighter-tag orange">NO ROLE</div>
+      <div class="hp-bar-wrap">
+        <div class="hp-bar orange" id="hpLeft"></div>
+      </div>
+      <div class="hp-num" id="hpNumLeft">— XP</div>
+    </div>
+    <div class="prompt-section">
+      <div class="prompt-chip">⚡ prompt</div>
+      <div class="prompt-bubble orange" id="promptLeft"></div>
+    </div>
+    <button class="fight-btn orange" id="btnLeft" onclick="runSingle('left')">▶ Run Prompt</button>
+    <div class="response-box" id="respLeft"></div>
+    <div class="score-panel" id="scoreLeft">
+      <div class="score-title">📊 score breakdown</div>
+      <div id="metricsLeft"></div>
+      <div class="xp-total-box orange">
+        <div>
+          <div class="xp-label">Score</div>
+          <div class="xp-score orange score-pop" id="xpLeft">—</div>
+        </div>
+        <div class="xp-badge" id="gradeLeft"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VS COL -->
+  <div class="vs-col">
+    <div class="vs-line"></div>
+    <div class="vs-badge">VS</div>
+    <button class="run-all-btn" id="runAllBtn" onclick="runBoth()">▶ RUN<br>BOTH</button>
+    <div class="vs-line"></div>
+  </div>
+
+  <!-- RIGHT: WITH ROLE -->
+  <div class="fighter-card cyan" id="cardRight">
+    <div class="card-top">
+      <div class="fighter-tag cyan">WITH ROLE</div>
+      <div class="hp-bar-wrap">
+        <div class="hp-bar cyan" id="hpRight"></div>
+      </div>
+      <div class="hp-num" id="hpNumRight">— XP</div>
+    </div>
+    <div class="prompt-section">
+      <div class="prompt-chip">✨ prompt</div>
+      <div class="prompt-bubble cyan" id="promptRight"></div>
+    </div>
+    <button class="fight-btn cyan" id="btnRight" onclick="runSingle('right')">▶ Run Prompt</button>
+    <div class="response-box" id="respRight"></div>
+    <div class="score-panel" id="scoreRight">
+      <div class="score-title">📊 score breakdown</div>
+      <div id="metricsRight"></div>
+      <div class="xp-total-box cyan">
+        <div>
+          <div class="xp-label">Score</div>
+          <div class="xp-score cyan score-pop" id="xpRight">—</div>
+        </div>
+        <div class="xp-badge" id="gradeRight"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RESULTS BANNER -->
+<div class="results-banner" id="resultsBanner">
+  <div class="results-top">
+    <div class="results-trophy">🏆</div>
+    <div>
+      <div class="results-headline" id="resultsHeadline"></div>
+      <div class="results-sub" id="resultsSub"></div>
+    </div>
+  </div>
+  <div class="boost-grid" id="boostGrid"></div>
+  <div class="insight-box" id="insightBox"></div>
+</div>
+
+<script>
+// =====================
+// DATA
+// =====================
+const SCENARIOS = [
+  {
+    id: 0,
+    label: "Science Explainer",
+    promptLeft: `"Explain how vaccines work."`,
+    promptRight: `"You are a science communicator with a PhD in immunology who specialises in explaining complex topics to general audiences. Explain how vaccines work using an analogy, then describe the specific mechanism of mRNA vaccines."`,
+    responseLeft: `Vaccines work by training your immune system to recognise and fight specific diseases without you having to get sick first.\n\nWhen you get a vaccine, your body is exposed to a harmless version of a pathogen — or just a piece of it — which triggers an immune response. Your body produces antibodies and, importantly, remembers how to fight that threat in the future. So if you're ever exposed to the real disease, your immune system can respond quickly and prevent serious illness.`,
+    responseRight: `ANALOGY FIRST\n\nThink of your immune system as a highly trained security force. A vaccine is like showing that security team a wanted poster — a description or photo of a threat — before the criminal ever shows up. The team studies it, prepares a response plan, and posts lookouts. If the real threat arrives later, they neutralise it before it causes damage.\n\nHOW mRNA VACCINES WORK\n\nmRNA vaccines (like the Pfizer-BioNTech and Moderna COVID-19 vaccines) take this a step further with impressive precision:\n\n1. Delivery: A lipid nanoparticle carries a strand of synthetic messenger RNA into your muscle cells.\n2. Instruction: The mRNA contains the genetic code for the pathogen's spike protein — in the case of SARS-CoV-2, the distinctive protein on its surface.\n3. Antigen production: Your ribosomes read the mRNA and temporarily produce copies of the spike protein. The mRNA itself degrades within days and never enters the cell nucleus.\n4. Immune activation: Your immune system detects these foreign antigens, activates B cells to produce antibodies, and generates memory T cells and B cells.\n5. Long-term protection: If the real virus appears, memory cells mount a rapid, targeted response — neutralising the pathogen before significant infection can occur.\n\nThis approach is faster to manufacture than traditional vaccines and can be adapted quickly when a pathogen mutates.`,
+    scores: { left: [45, 60, 65], right: [82, 78, 85] },
+    insight: `The role prompt produced a <strong>structured dual-explanation</strong> — an accessible analogy followed by a precise step-by-step mRNA mechanism with accurate terminology like lipid nanoparticles, ribosomes, and memory T cells. The no-role version gave a correct but entirely surface-level summary.`,
+    boosts: ["Analogy + 5-step mechanism", "Terms: antigen, T cells, lipid nanoparticle", "Clear two-part structure"]
+  },
+  {
+    id: 1,
+    label: "Business Problem",
+    promptLeft: `"Our customer churn is too high. What should we do?"`,
+    promptRight: `"You are a SaaS growth consultant with 10 years of experience reducing churn for B2B software companies. Diagnose the top three causes of elevated churn and provide a prioritised action plan."`,
+    responseLeft: `High customer churn is a common problem. Here are some things you could try:\n\n- Improve your customer service and be more responsive to complaints\n- Ask churned customers why they left using exit surveys\n- Offer discounts or loyalty rewards to keep customers around longer\n- Make your product easier to use so people don't get frustrated\n- Check if your pricing is competitive compared to alternatives\n- Send more regular emails to keep customers engaged\n\nIn general, focusing on customer satisfaction and making sure people feel valued will help reduce churn over time.`,
+    responseRight: `After a decade reducing churn across B2B SaaS businesses, I consistently see three root causes accounting for the majority of involuntary and voluntary churn:\n\nROOT CAUSE 1: Poor activation and time-to-value (TTV)\nUsers who don't reach their "aha moment" within the first 14 days churn at 3–5x the rate of activated users. If customers haven't experienced core product value quickly, they disengage before renewal conversations even begin.\n\nAction plan:\n• Map your activation funnel and identify the single step with the highest drop-off\n• Define a measurable activation milestone (e.g. "created first report", "invited a teammate")\n• Build an automated onboarding sequence that drives toward that milestone within 7 days\n• Target: reduce median TTV by 40% within 90 days\n\nROOT CAUSE 2: Low product stickiness and engagement depth\nAccounts using only 1–2 features have weak switching costs. Monitor weekly active users (WAU) and feature adoption breadth as leading indicators of renewal risk.\n\nAction plan:\n• Identify your "power user" behaviour pattern (features correlated with renewal)\n• Trigger in-app prompts for at-risk accounts showing declining WAU\n• Assign a CSM to accounts with engagement scores below threshold 60 days before renewal\n\nROOT CAUSE 3: Misaligned sales-to-product expectations\nWhen sales oversells capabilities, customers churn at renewal because reality didn't match the pitch. This inflates your Net Revenue Retention (NRR) gap.\n\nAction plan:\n• Audit your last 20 churned accounts — interview CSMs on stated reason vs. root cause\n• Introduce a mutual success plan (MSP) signed at onboarding that aligns on specific outcomes\n• Create a closed-loop between sales and product for feature gap reporting\n\nPriority order: Fix activation first — it has the fastest payback and improves all downstream metrics including NRR, expansion revenue, and CSM capacity.`,
+    scores: { left: [60, 35, 30], right: [82, 88, 92] },
+    insight: `The role-assigned response delivered <strong>three precisely diagnosed root causes</strong> with metrics (TTV, WAU, NRR), measurable targets, and a clear prioritisation rationale. The no-role version produced a generic checklist any non-expert could have written — no SaaS-specific framing at all.`,
+    boosts: ["3 root causes with action plans", "Metrics: TTV, WAU, NRR, expansion revenue", "Prioritised with 90-day targets"]
+  },
+  {
+    id: 2,
+    label: "Creative Brief",
+    promptLeft: `"Write a tagline for a coffee brand."`,
+    promptRight: `"You are a senior copywriter at a top creative agency with 15 years of brand positioning experience. Create three distinct tagline options for an artisan cold brew brand targeting urban professionals aged 25–35, each with a brief rationale."`,
+    responseLeft: `Here's a tagline for your coffee brand:\n\n"Wake up to something better."\n\nThis tagline is positive and energetic, and it suggests that your coffee is a step above the rest. It works for most types of coffee brands and is easy to remember.`,
+    responseRight: `Here are three distinct tagline directions for your artisan cold brew brand, each built on a different positioning strategy:\n\nOPTION 1: "Slow made. Fast world."\nPositioning angle: Tension and contrast\nRationale: This line speaks directly to the urban professional's lived experience — always rushing — while positioning the brand as deliberately unhurried. "Slow made" signals craft and quality without using the word "artisan." The two-word rhythm feels modern and confident. Works well in transit advertising and social formats.\n\nOPTION 2: "The coffee that doesn't perform."\nPositioning angle: Anti-hustle authenticity\nRationale: Targets the growing fatigue with performative productivity culture among 25–35 urban audiences. It positions cold brew as genuine, unpretentious — a quiet moment of quality in a noisy day. Slightly provocative, which generates conversation and brand recall. Best suited to brands willing to take a strong cultural stance.\n\nOPTION 3: "Cold. Focused. Yours."\nPositioning angle: Personal ritual and ownership\nRationale: Short, clipped structure mirrors the no-nonsense tone of a professional who values precision. "Yours" creates personalisation and ownership of the ritual — morning coffee as an identity marker, not just a caffeine delivery. Scales well across packaging, digital, and out-of-home.`,
+    scores: { left: [35, 20, 15], right: [85, 78, 72] },
+    insight: `The role prompt produced <strong>three strategically distinct options</strong> — each with a named positioning angle and rationale explaining the creative and cultural logic. The no-role version gave a single bland line with no strategic thinking behind it.`,
+    boosts: ["3 options with named angles", "Cultural insight: anti-hustle positioning", "Channel & format recommendations"]
+  }
+];
+
+const METRICS = ["Structure & Clarity", "Specificity", "Domain Language"];
+const METRIC_COLORS = ["#00e5c8", "#ffd93d", "#ff6b2b"];
+const GRADE_MAP = [
+  { min: 85, grade: "S", cls: "badge-s" },
+  { min: 70, grade: "A", cls: "badge-a" },
+  { min: 55, grade: "B", cls: "badge-b" },
+  { min: 40, grade: "C", cls: "badge-c" },
+  { min: 0,  grade: "D", cls: "badge-d" }
+];
+
+let current = 0;
+let leftDone = false;
+let rightDone = false;
+let totalXP = 0;
+
+function getGrade(score) {
+  return GRADE_MAP.find(g => score >= g.min);
+}
+
+function metricColor(score) {
+  if (score >= 75) return "var(--green)";
+  if (score >= 55) return "var(--yellow)";
+  if (score >= 35) return "var(--orange)";
+  return "var(--red)";
+}
+
+function selectScenario(idx) {
+  current = idx;
+  document.querySelectorAll('.scenario-pill').forEach((p, i) => p.classList.toggle('active', i === idx));
+  document.getElementById('roundBadge').textContent = `ROUND ${idx + 1} / 3`;
+  resetAll();
+  loadScenario();
+}
+
+function loadScenario() {
+  const s = SCENARIOS[current];
+  document.getElementById('promptLeft').textContent = s.promptLeft;
+  document.getElementById('promptRight').textContent = s.promptRight;
+}
+
+function resetAll() {
+  leftDone = false; rightDone = false;
+  ['Left','Right'].forEach(side => {
+    document.getElementById(`resp${side}`).classList.remove('show');
+    document.getElementById(`resp${side}`).innerHTML = '';
+    document.getElementById(`score${side}`).classList.remove('show');
+    document.getElementById(`hp${side}`).style.width = '0%';
+    document.getElementById(`hpNum${side}`).textContent = '— XP';
+    document.getElementById(`xp${side}`).textContent = '—';
+    document.getElementById(`grade${side}`).textContent = '';
+    document.getElementById(`grade${side}`).className = 'xp-badge';
+    document.getElementById(`btn${side}`).disabled = false;
+    document.getElementById(`card${side}`).classList.remove('winner');
+  });
+  document.getElementById('resultsBanner').classList.remove('show');
+  document.getElementById('runAllBtn').disabled = false;
+}
+
+function runBoth() {
+  document.getElementById('runAllBtn').disabled = true;
+  runSingle('left');
+  setTimeout(() => runSingle('right'), 300);
+}
+
+function runSingle(side) {
+  const isLeft = side === 'left';
+  const S = side.charAt(0).toUpperCase() + side.slice(1);
+  const s = SCENARIOS[current];
+
+  const btnEl = document.getElementById(`btn${S}`);
+  const respEl = document.getElementById(`resp${S}`);
+
+  btnEl.disabled = true;
+  respEl.classList.add('show');
+  respEl.innerHTML = '<div class="dots"><i></i><i></i><i></i></div>';
+
+  const text = isLeft ? s.responseLeft : s.responseRight;
+
+  // Simulate a short "thinking" delay before typewriter starts
+  setTimeout(() => {
+    respEl.innerHTML = '';
+    const cursor = document.createElement('span');
+    cursor.className = 'blink-cursor';
+    let i = 0;
+    // Faster for left (shorter), slightly slower for right (longer, more dramatic)
+    const speed = isLeft ? 12 : 8;
+    const chunk = isLeft ? 3 : 2;
+    const tick = setInterval(() => {
+      if (i < text.length) {
+        respEl.innerHTML = text.slice(0, i + 1).replace(/\n/g, '<br>');
+        respEl.appendChild(cursor);
+        i += chunk;
+        respEl.scrollTop = respEl.scrollHeight;
+      } else {
+        clearInterval(tick);
+        respEl.innerHTML = text.replace(/\n/g, '<br>');
+        revealScores(side);
+      }
+    }, speed);
+  }, 900); // short loading pause for realism
+}
+
+function revealScores(side) {
+  const isLeft = side === 'left';
+  const S = side.charAt(0).toUpperCase() + side.slice(1);
+  const s = SCENARIOS[current];
+  const scores = isLeft ? s.scores.left : s.scores.right;
+  const colorClass = isLeft ? 'orange' : 'cyan';
+
+  const metricsEl = document.getElementById(`metrics${S}`);
+  metricsEl.innerHTML = '';
+
+  METRICS.forEach((name, i) => {
+    const sc = scores[i];
+    const color = metricColor(sc);
+    const div = document.createElement('div');
+    div.className = 'metric-item';
+    div.innerHTML = `
+      <div class="metric-top">
+        <div class="metric-name-txt">${name}</div>
+        <div class="metric-pts" style="color:${color}" id="mpts_${side}_${i}">0</div>
+      </div>
+      <div class="metric-track">
+        <div class="metric-fill" id="mfill_${side}_${i}" style="background:${color}"></div>
+      </div>
+    `;
+    metricsEl.appendChild(div);
+  });
+
+  document.getElementById(`score${S}`).classList.add('show');
+
+  // Stagger bar animations
+  METRICS.forEach((_, i) => {
+    setTimeout(() => {
+      const fill = document.getElementById(`mfill_${side}_${i}`);
+      const pts = document.getElementById(`mpts_${side}_${i}`);
+      if (fill) fill.style.width = scores[i] + '%';
+      // Count-up
+      let v = 0;
+      const target = scores[i];
+      const countUp = setInterval(() => {
+        v = Math.min(v + 2, target);
+        if (pts) pts.textContent = v;
+        if (v >= target) clearInterval(countUp);
+      }, 20);
+    }, i * 200);
+  });
+
+  const avg = Math.round(scores.reduce((a,b) => a+b, 0) / scores.length);
+
+  setTimeout(() => {
+    // HP bar
+    document.getElementById(`hp${S}`).style.width = avg + '%';
+    document.getElementById(`hpNum${S}`).textContent = avg + ' XP';
+
+    // XP number pop
+    const xpEl = document.getElementById(`xp${S}`);
+    xpEl.textContent = avg + '/100';
+
+    // Grade
+    const g = getGrade(avg);
+    const gradeEl = document.getElementById(`grade${S}`);
+    gradeEl.textContent = 'RANK ' + g.grade;
+    gradeEl.className = 'xp-badge ' + g.cls;
+
+    if (isLeft) { leftDone = true; }
+    else { rightDone = true; totalXP += avg; document.getElementById('totalXP').textContent = totalXP; }
+
+    if (leftDone && rightDone) {
+      setTimeout(showResults, 600);
+    }
+  }, METRICS.length * 200 + 400);
+}
+
+function showResults() {
+  const s = SCENARIOS[current];
+  const leftAvg = Math.round(s.scores.left.reduce((a,b) => a+b,0)/s.scores.left.length);
+  const rightAvg = Math.round(s.scores.right.reduce((a,b) => a+b,0)/s.scores.right.length);
+  const diff = rightAvg - leftAvg;
+
+  document.getElementById('cardRight').classList.add('winner');
+
+  document.getElementById('resultsHeadline').textContent = `Role Prompt wins by +${diff} points`;
+  document.getElementById('resultsSub').textContent = `Scored ${rightAvg}/100 vs ${leftAvg}/100 — that's a ${Math.round((diff/leftAvg)*100)}% improvement`;
+
+  const boostGrid = document.getElementById('boostGrid');
+  const deltaLabels = METRICS.map((m, i) => ({
+    metric: m,
+    delta: s.scores.right[i] - s.scores.left[i]
+  }));
+
+  boostGrid.innerHTML = deltaLabels.map((d, i) => `
+    <div class="boost-card">
+      <div class="boost-metric">${d.metric}</div>
+      <div class="boost-val">+${d.delta}</div>
+      <div class="boost-desc">${s.boosts[i]}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('insightBox').innerHTML = `💡 <strong>Why it matters:</strong> ${s.insight}`;
+  document.getElementById('resultsBanner').classList.add('show');
+}
+
+// Init
+loadScenario();
+</script>
+</body>
+</html>
